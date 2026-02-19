@@ -17,7 +17,7 @@ nano .env               # Fill in your information
 2. **Run bootstrap**:
 
 ```bash
-git clone [https://github.com/rickelmedias/my-tux.git](https://github.com/rickelmedias/my-tux.git)
+git clone https://github.com/rickelmedias/my-tux
 cd my-tux
 chmod +x bootstrap.sh scripts/*.sh
 ./bootstrap.sh
