@@ -5,7 +5,7 @@ Complete and automated personal development environment setup.
 **Target Hardware:** AMD Ryzen 7 7700X + RX 7800 XT (gfx1101, RDNA3)
 **OS:** Ubuntu 24.04.3 LTS (Noble Numbat)
 
-## ⚡ Usage
+## Usage
 
 1. **Configure variables**:
 
