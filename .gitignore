@@ -1,0 +1,65 @@
+# =============================================================================
+# .gitignore — Ubuntu ROCm Bootstrap
+# =============================================================================
+
+# ── Configurações pessoais ────────────────────────────────────────────────────
+.env
+
+# ── Logs do bootstrap ─────────────────────────────────────────────────────────
+.logs/
+*.log
+
+# ── Estado do bootstrap (arquivo binário local) ───────────────────────────────
+# Nota: ~/.bootstrap_state fica no $HOME, não no repo
+
+# ── Cache e temporários ───────────────────────────────────────────────────────
+.cache/
+tmp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# ── Dotfiles que NÃO devem ser versionados ────────────────────────────────────
+# (Adicione aqui dotfiles com credenciais ou dados sensíveis)
+# Exemplo:
+# dotfiles/ssh/.ssh/id_*
+# dotfiles/ssh/.ssh/known_hosts
+
+# ── IDE e editores ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.iml
+
+# ── Sistema operacional ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Rust ──────────────────────────────────────────────────────────────────────
+target/
+Cargo.lock
+
+# ── Go ────────────────────────────────────────────────────────────────────────
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# ── Backup de configs (criados pelo bootstrap) ────────────────────────────────
+*.bak
+*.backup
