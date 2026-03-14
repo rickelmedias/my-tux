@@ -9,7 +9,7 @@ Automated setup for **Ubuntu 24.04 on WSL2** (Windows Subsystem for Linux).
 
 ## Hardware & host
 
-| | |
+| Component | Spec |
 |---|---|
 | CPU | AMD Ryzen 7 7700X |
 | GPU | AMD RX 7800 XT (gfx1101, RDNA3) |
