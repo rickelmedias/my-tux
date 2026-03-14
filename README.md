@@ -1,141 +1,142 @@
 # My Tux
 
-Complete and automated personal development environment setup.
+> Automated personal development environment setup for Ubuntu 24.04.
 
-**Target Hardware:** AMD Ryzen 7 7700X + RX 7800 XT (gfx1101, RDNA3)
-**OS:** Ubuntu 24.04.3 LTS (Noble Numbat)
-
-## Usage
-
-1. **Configure variables**:
-
-```bash
-cp .env.example .env
-nano .env               # Fill in your information
+```
+                         ┌─────────────────────────────────┐
+                         │           my-tux (main)         │
+                         │        ← documentation →        │
+                         └────────────┬────────────────────┘
+                                      │
+                   ┌──────────────────┴──────────────────┐
+                   │                                     │
+       ┌───────────▼────────────┐           ┌────────────▼───────────┐
+       │   operational-system   │           │          wsl           │
+       │   Ubuntu 24.04 bare    │           │  Ubuntu 24.04 on WSL2  │
+       │        metal           │           │  (Windows host)        │
+       └────────────────────────┘           └────────────────────────┘
 ```
 
-2. **Run bootstrap**:
+Choose your branch based on your environment and run `./bootstrap.sh` — it handles everything.
+
+---
+
+## Hardware & OS
+
+| | |
+|---|---|
+| CPU | AMD Ryzen 7 7700X |
+| GPU | AMD RX 7800 XT (gfx1101, RDNA3) |
+| OS | Ubuntu 24.04.3 LTS (Noble Numbat) |
+
+---
+
+## Quick Start
 
 ```bash
+# 1. Clone and enter the repo
 git clone https://github.com/rickelmedias/my-tux
 cd my-tux
+
+# 2. Switch to your branch
+git checkout operational-system   # bare metal Ubuntu
+# or
+git checkout wsl                  # WSL2 on Windows
+
+# 3. Configure your variables
+cp .env.example .env
+nano .env
+
+# 4. Run
 chmod +x bootstrap.sh scripts/*.sh
 ./bootstrap.sh
 ```
 
-3. **After reboot** (required after ROCm installation):
-
-```bash
-./bootstrap.sh          # Automatically resumes
-```
-
-*The script is **idempotent** — it can be safely run multiple times. It saves its state in `~/.bootstrap_state` and resumes from where it left off after reboots.*
+The script is **idempotent** — safe to run multiple times. State is saved in `~/.bootstrap_state` and execution resumes automatically after interruptions.
 
 ---
 
-## Regarding Neovim errors
-
-1. It might be an error due to not using the latest version, so Lazy cannot download all dependencies.
-2. The error `vim.schedule callback: vim/keymap.lua:0: rhs: expected string|function` appears in some files and is related to a plugin (likely gitsigns) attempting to map a key with a `nil` value.
-
-**Solutions**:
-
-* Check `~/.config/nvim/lua/plugins/extras.lua:72-77`
-* The mapping might be referencing a non-existent function.
-* It does not impact Neovim's general functionality.
-* Permanent solution: enable `INSTALL_NVIM_UNSTABLE=true` in `.env`.
-
----
-
-## What is installed
+## What's installed in both branches
 
 | Step | Description |
-| --- | --- |
-| `00-nvim-unstable` | Installs the dev/unstable version (optional, via `.env`) |
-| `01-packages` | System packages: build tools, neovim, stow, ripgrep, bat, fd, etc. |
-| `02-zsh` | ZSH + Oh My ZSH + Powerlevel10k + MesloLGS NF fonts |
-| `03-conda` | Miniconda3 (base not activated by default) |
+|---|---|
+| `00-nvim-unstable` | Neovim unstable/dev build (optional, set `INSTALL_NVIM_UNSTABLE=true` in `.env`) |
+| `01-packages` | Core system packages: build tools, neovim, stow, ripgrep, bat, fd, htop, jq, etc. |
+| `02-zsh` | ZSH + Oh My ZSH + Powerlevel10k theme + MesloLGS NF fonts |
+| `03-conda` | Miniconda3 (base env not auto-activated) |
 | `04-docker` | Docker Engine CE + Compose plugin |
-| `05-rocm` | AMD ROCm 7.2 via package manager (**reboot required**) |
-| `06-pytorch` | PyTorch 2.5.1 or 2.7.1 with ROCm (official AMD wheels) |
+| `05-rocm` | AMD ROCm 7.2 |
+| `06-pytorch` | PyTorch with ROCm — official AMD wheels (Python 3.10 or 3.11) |
 | `07-mise` | Mise + Java 21 (Temurin), Node LTS, Go, Rust, Maven |
-| `08-git` | Global Git config + SSH key + git-delta |
-| `09-dotfiles` | Dotfiles symlinking via **GNU Stow** |
+| `08-git` | Global Git config + SSH key generation + git-delta |
+| `09-dotfiles` | Dotfiles symlinked via GNU Stow |
 
 ---
 
-## Important Notes — ROCm + RX 7800 XT
+## Differences between branches
 
-* The **RX 7800 XT (gfx1101)** is **officially supported** by ROCm 7.2
-* Supported only on **Ubuntu 24.04.3** — specific point release version.
-* This script uses the **package manager method** (recommended by AMD since ROCm 7.x).
-* The `amdgpu-install` via `.deb` method has been removed from official documentation.
+### `operational-system` — bare metal Ubuntu
 
+| Step | Detail |
+|---|---|
+| `01-packages` | Includes `gnome-tweaks`, `gnome-shell-extension-manager`, `xclip`, `dconf-cli` |
+| `02-zsh` | Installs Monokai Pro theme on GNOME Terminal via Gogh |
+| `05-rocm` | Installs ROCm 7.2 via package manager (`apt install rocm`) — **full reboot required** |
 
-* After installing ROCm, a **reboot is mandatory**.
-* The `HSA_OVERRIDE_GFX_VERSION` variable is **not required** for the RX 7800 XT (gfx1101 is natively supported).
-* Verify after reboot:
+Post-install manual steps:
+1. Terminal → Preferences → Profile → Font: `MesloLGS NF Regular`
+2. `p10k configure` to set up the prompt
+3. Add SSH key to GitHub: `cat ~/.ssh/id_ed25519.pub`
+4. GNOME Tweaks → Appearance → Themes/Icons
+5. Extensions: Dash to Dock, User Themes (via Extension Manager)
+
+---
+
+### `wsl` — WSL2 on Windows
+
+| Step | Detail |
+|---|---|
+| `01-packages` | GNOME-specific packages excluded (not available in WSL) |
+| `02-zsh` | Gogh theme skipped — configure font in Windows Terminal instead |
+| `05-rocm` | Installs via `amdgpu-install --usecase=wsl,rocm --no-dkms` — **requires `wsl --shutdown` instead of reboot** |
+
+Pre-requisite (Windows side): install [AMD Adrenalin Edition 26.1.1+](https://www.amd.com/en/support) before running the bootstrap.
+
+Post-install manual steps:
+1. Windows Terminal → Settings → Ubuntu profile → Appearance → Font: `MesloLGS NF Regular`
+2. `p10k configure` to set up the prompt
+3. Add SSH key to GitHub: `cat ~/.ssh/id_ed25519.pub`
+4. Verify GPU: `rocminfo | grep 'Marketing Name'`
+
+---
+
+## Dotfiles (GNU Stow)
+
+Each subdirectory in `dotfiles/` is a Stow package that maps directly to `$HOME`:
+
+```
+dotfiles/
+├── zsh/
+│   ├── .zshrc
+│   └── .p10k.zsh
+└── nvim/
+    └── .config/nvim/
+        ├── init.lua              # lazy.nvim
+        └── lua/plugins/
+            ├── colorscheme.lua   # Monokai Pro
+            ├── telescope.lua     # + fzf-native
+            ├── treesitter.lua
+            └── extras.lua        # neo-tree, lualine, gitsigns
+```
 
 ```bash
-rocm-smi          # GPU status
-rocminfo          # Detailed information
-hipinfo           # Verify HIP runtime
-```
+# Re-apply after changes
+cd dotfiles && stow --restow --target="$HOME" nvim zsh
 
----
-
-## Project Structure
-
-```
-my-tux/
-├── bootstrap.sh            # Main orchestrator
-├── .env.example            # Configuration template
-├── .env                    # Your configs (create based on .example)
-├── scripts/
-│   ├── 00-nvim-unstable.sh
-│   ├── 01-packages.sh
-│   ├── 02-zsh.sh
-│   ├── 03-conda.sh
-│   ├── 04-docker.sh
-│   ├── 05-rocm.sh          # ROCm 7.2 (package manager)
-│   ├── 06-pytorch.sh       # PyTorch wheels AMD
-│   ├── 07-mise.sh
-│   ├── 08-git.sh
-│   └── 09-dotfiles.sh      # GNU Stow
-└── dotfiles/               # Managed via GNU Stow
-    ├── zsh/
-    │   ├── .zshrc
-    │   └── .p10k.zsh
-    └── nvim/
-        └── .config/nvim/
-            ├── init.lua    # lazy.nvim
-            └── lua/plugins/
-                ├── colorscheme.lua   # Monokai Pro
-                ├── telescope.lua     # + fzf-native
-                ├── treesitter.lua
-                └── extras.lua        # neo-tree, lualine, gitsigns
-```
-
----
-
-## Dotfiles — GNU Stow
-
-[GNU Stow](https://www.gnu.org/software/stow/) manages symlinks automatically. Each subdirectory in `dotfiles/` is a "package":
-
-```bash
-# Install all dotfiles
-cd dotfiles && stow --target="$HOME" zsh nvim
-
-# Remove symlinks for a package
+# Remove a package
 stow -D --target="$HOME" nvim
 
-# Update after changes
-stow --restow --target="$HOME" nvim
-```
-
-To add new dotfiles (e.g., tmux):
-
-```bash
+# Add new dotfiles (e.g. tmux)
 mkdir -p dotfiles/tmux
 cp ~/.tmux.conf dotfiles/tmux/.tmux.conf
 cd dotfiles && stow --target="$HOME" tmux
@@ -143,42 +144,30 @@ cd dotfiles && stow --target="$HOME" tmux
 
 ---
 
-## Tool Choices
+## Neovim errors
 
-### Why `mise` instead of `asdf`?
+The error `vim.schedule callback: vim/keymap.lua:0: rhs: expected string|function` is caused by a plugin (likely gitsigns) mapping a key with a `nil` value.
 
-* Written in **Rust** (much faster).
-* Compatible with asdf's `.tool-versions`.
-* Actively maintained with a vibrant roadmap.
-* Simpler installation, fewer dependencies.
-
-### Why `lazy.nvim` instead of `Packer`?
-
-* Packer was **archived** in August 2023 — no further updates.
-* lazy.nvim is the modern replacement: true lazy loading, better UI, faster.
-
-### Why `GNU Stow`?
-
-* No dependencies beyond Perl (pre-installed).
-* Simple: just creates/removes symlinks.
-* Works perfectly with any VCS (git pull = updated dotfiles).
+- Check `~/.config/nvim/lua/plugins/extras.lua:72-77`
+- Does not affect general Neovim functionality
+- Permanent fix: set `INSTALL_NVIM_UNSTABLE=true` in `.env`
 
 ---
 
-## Manual Steps (post-script)
+## Tool choices
 
-1. **Terminal:** Preferences → Profile → Text → Font: `MesloLGS NF Regular`.
-2. **Powerlevel10k:** `p10k configure` (if you wish to reconfigure).
-3. **GitHub SSH:** Copy `~/.ssh/id_ed25519.pub` → [github.com/settings/ssh](https://github.com/settings/ssh/new).
-4. **GNOME Tweaks:** Themes and icons (download manually from [gnome-look.org](https://www.gnome-look.org)).
-5. **Extensions:** Dash to Dock, User Themes (via Extension Manager).
+**mise over asdf** — written in Rust, significantly faster, compatible with `.tool-versions`, actively maintained.
+
+**lazy.nvim over Packer** — Packer was archived in August 2023. lazy.nvim has true lazy loading, better UI, and faster startup.
+
+**GNU Stow** — no dependencies beyond Perl (pre-installed on Ubuntu). Simple symlink management that works with any VCS.
 
 ---
 
 ## Contributing
 
-Issues and PRs are welcome! If you use this setup on another AMD GPU or Ubuntu version, please share your experience.
+Issues and PRs are welcome. If you run this on a different AMD GPU or Ubuntu version, please share your experience.
 
 ## License
 
-MIT License - feel free to use and modify.
+MIT
