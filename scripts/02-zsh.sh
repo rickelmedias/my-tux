@@ -70,21 +70,10 @@ if $fonts_installed; then
   fc-cache -fv
 fi
 
-# ── Tema do GNOME Terminal (Gogh) ────────────────────────────────────────────
-echo "→ Instalando tema Monokai Pro no GNOME Terminal (via Gogh)..."
-# Definimos a variável TERMINAL para o Gogh não perguntar qual é o emulador
-export TERMINAL=gnome-terminal 
-export GOGH_NONINTERACTIVE=1
-
-# O echo "224" injeta a resposta automaticamente no script do Gogh
-echo "224" | bash -c "$(wget -qO- https://git.io/vQgMr)" > /dev/null 2>&1 || {
-  echo "  ⚠️  Não foi possível instalar o tema do terminal automaticamente."
-}
-
 echo ""
 echo "✓ ZSH + Oh My ZSH + Powerlevel10k configurados."
 echo ""
-echo "  ⚠️  Próximos passos manuais:"
-echo "  1. Abra Preferências do Terminal → Perfil → Texto"
-echo "     Ative 'Fonte personalizada' e selecione 'MesloLGS NF Regular'"
+echo "  ⚠️  Próximos passos manuais (WSL):"
+echo "  1. No terminal Windows (ex: Windows Terminal), configure a fonte 'MesloLGS NF Regular'"
+echo "     Settings → Perfil Ubuntu → Appearance → Font face"
 echo "  2. Após o dotfiles ser instalado (etapa 09), rode: p10k configure"

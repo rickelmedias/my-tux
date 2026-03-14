@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Linux Bootstrap - Ubuntu 24.04 LTS
-# Hardware: AMD Ryzen 7 7700X + RX 7800 XT (gfx1101, RDNA3)
+# Linux Bootstrap - WSL (Ubuntu 24.04)
 # =============================================================================
 set -euo pipefail
 
@@ -76,7 +75,7 @@ PY
 
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
 preflight() {
-  header "Linux Bootstrap - Pre-flight checks"
+  header "Linux Bootstrap (WSL) - Pre-flight checks"
 
   local distro
   distro=$(lsb_release -rs 2>/dev/null || echo "unknown")
@@ -91,38 +90,16 @@ preflight() {
   fi
   log "Ubuntu Noble detectado ✓"
 
-  local kernel; kernel=$(uname -r)
-  info "Kernel: $kernel"
-
-  if lspci | grep -qi "AMD/ATI.*RX 7800"; then
-    log "RX 7800 XT detectada ✓ (gfx1101, RDNA3 — suportada pelo ROCm 7.2)"
-  elif lspci | grep -qi "AMD"; then
-    warn "GPU AMD detectada (verifique suporte ROCm em https://rocm.docs.amd.com)"
+  if grep -qi "microsoft" /proc/version 2>/dev/null; then
+    log "Ambiente WSL detectado ✓"
+  else
+    warn "Ambiente WSL não detectado — use a branch 'operational-system' para bare metal."
   fi
 
   echo ""
   info "Log: $LOG_FILE"
   info "Estado: $STATE_FILE (bitmask binário)"
   echo ""
-}
-
-# ── Checkpoint de reboot ───────────────────────────────────────────────────────
-checkpoint_reboot() {
-  mark_done "$1"
-  echo ""
-  warn "╔══════════════════════════════════════════════════════╗"
-  warn "║  REBOOT NECESSÁRIO para continuar                    ║"
-  warn "║  Após reiniciar, rode: ./bootstrap.sh                ║"
-  warn "║  O script continuará de onde parou automaticamente.  ║"
-  warn "╚══════════════════════════════════════════════════════╝"
-  echo ""
-  read -rp "Reiniciar agora? [s/N]: " confirm
-  if [[ "$confirm" =~ ^[sS]$ ]]; then
-    sudo reboot
-  else
-    info "Reinicie manualmente e rode ./bootstrap.sh novamente."
-    exit 0
-  fi
 }
 
 # ── Executar script de etapa ──────────────────────────────────────────────────
@@ -159,25 +136,19 @@ main() {
   run_step "02-zsh"         "02-zsh.sh"
   run_step "03-conda"       "03-conda.sh"
   run_step "04-docker"      "04-docker.sh"
-
-  if ! is_done "05-rocm"; then
-    run_step "05-rocm" "05-rocm.sh"
-    checkpoint_reboot "05-rocm-reboot"
-  fi
-
+  run_step "05-rocm"        "05-rocm.sh"
   run_step "06-pytorch"     "06-pytorch.sh"
   run_step "07-mise"        "07-mise.sh"
   run_step "08-git"         "08-git.sh"
   run_step "09-dotfiles"    "09-dotfiles.sh"
 
   header "Bootstrap completo!"
-  log "Ambiente de desenvolvimento configurado com sucesso!"
+  log "Ambiente de desenvolvimento WSL configurado com sucesso!"
   echo ""
   info "Próximos passos manuais:"
-  echo "  1. Terminal → Preferências → Fonte: MesloLGS NF Regular"
+  echo "  1. Windows Terminal → Settings → Perfil Ubuntu → Appearance → Font: MesloLGS NF Regular"
   echo "  2. Adicione sua chave SSH ao GitHub: cat ~/.ssh/id_ed25519.pub"
-  echo "  3. Verifique GPU: rocm-smi && rocminfo | grep 'Marketing Name'"
-  echo "  4. GNOME Tweaks → Aparência → Temas/Ícones"
+  echo "  3. Para GPU AMD: pip install torch-directml (opcional)"
   echo ""
   info "Logs disponíveis em: $LOG_DIR/"
   echo ""

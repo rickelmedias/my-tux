@@ -18,8 +18,6 @@ sudo apt install -y \
   zsh \
   neovim \
   stow \
-  gnome-tweaks \
-  gnome-shell-extension-manager \
   git-delta \
   ripgrep \
   fd-find \
@@ -27,13 +25,11 @@ sudo apt install -y \
   htop \
   jq \
   tree \
-  xclip \
   openssh-client \
   ca-certificates \
   gnupg \
   lsb-release \
   software-properties-common \
-  dconf-cli \
   uuid-runtime
 
 # bat é instalado como batcat no Ubuntu — criar alias
