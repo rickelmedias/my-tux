@@ -1,184 +1,231 @@
-# My Tux
+# My Tux — wsl
 
-Complete and automated personal development environment setup.
+Automated setup for **Ubuntu 24.04 on WSL2** (Windows Subsystem for Linux).
 
-**Target Hardware:** AMD Ryzen 7 7700X + RX 7800 XT (gfx1101, RDNA3)
-**OS:** Ubuntu 24.04.3 LTS (Noble Numbat)
+> For bare metal Ubuntu, switch to the [`operational-system`](../../tree/operational-system) branch.  
+> For an overview of both branches, see [`main`](../../tree/main).
+
+---
+
+## Hardware & host
+
+| | |
+|---|---|
+| CPU | AMD Ryzen 7 7700X |
+| GPU | AMD RX 7800 XT (gfx1101, RDNA3) |
+| Host OS | Windows (with WSL2) |
+| WSL distro | Ubuntu 24.04 LTS (Noble Numbat) |
+
+---
+
+## Pre-requisites (Windows side — before running anything)
+
+These must be done on Windows **before** running the bootstrap:
+
+1. **Install WSL2 with Ubuntu 24.04**
+   ```powershell
+   wsl --install -d Ubuntu-24.04
+   ```
+
+2. **Install AMD Adrenalin Edition 26.1.1+**  
+   Download from [amd.com/en/support](https://www.amd.com/en/support).  
+   This is the Windows GPU driver that exposes the GPU to WSL via `dxgkrnl`.  
+   **Restart Windows after installing.**
+
+3. **Verify WSL2 (not WSL1)**
+   ```powershell
+   wsl --list --verbose   # VERSION column must show 2
+   ```
+
+---
 
 ## Usage
 
-1. **Configure variables**:
-
-```bash
-cp .env.example .env
-nano .env               # Fill in your information
-```
-
-2. **Run bootstrap**:
+Inside Ubuntu on WSL:
 
 ```bash
 git clone https://github.com/rickelmedias/my-tux
 cd my-tux
+git checkout wsl
+cp .env.example .env
+nano .env
 chmod +x bootstrap.sh scripts/*.sh
 ./bootstrap.sh
 ```
 
-3. **After reboot** (required after ROCm installation):
+After ROCm installs, the script will pause and ask you to restart WSL. In PowerShell:
+
+```powershell
+wsl --shutdown
+wsl   # reopen Ubuntu
+```
+
+Then resume:
 
 ```bash
-./bootstrap.sh          # Automatically resumes
+./bootstrap.sh   # continues automatically from where it stopped
 ```
 
-*The script is **idempotent** — it can be safely run multiple times. It saves its state in `~/.bootstrap_state` and resumes from where it left off after reboots.*
+The script is **idempotent** — state is saved in `~/.bootstrap_state`. Safe to run multiple times.
 
 ---
 
-## Regarding Neovim errors
+## What gets installed
 
-1. It might be an error due to not using the latest version, so Lazy cannot download all dependencies.
-2. The error `vim.schedule callback: vim/keymap.lua:0: rhs: expected string|function` appears in some files and is related to a plugin (likely gitsigns) attempting to map a key with a `nil` value.
+### Step 00 — Neovim Unstable *(optional)*
 
-**Solutions**:
+Only runs if `INSTALL_NVIM_UNSTABLE=true` is set in `.env`.
 
-* Check `~/.config/nvim/lua/plugins/extras.lua:72-77`
-* The mapping might be referencing a non-existent function.
-* It does not impact Neovim's general functionality.
-* Permanent solution: enable `INSTALL_NVIM_UNSTABLE=true` in `.env`.
+- Adds `ppa:neovim-ppa/unstable`
+- Installs Neovim v0.12+ (dev build)
+- Required for some modern plugins that fail on the stable apt version
+
+### Step 01 — System packages
+
+Runs `apt update && apt upgrade`, then installs:
+
+| Package | Purpose |
+|---|---|
+| `build-essential` | gcc, make, etc. |
+| `neovim` | text editor |
+| `zsh` | shell |
+| `stow` | dotfiles symlink manager |
+| `git`, `git-delta` | version control + pretty diffs |
+| `ripgrep`, `fd-find`, `bat` | modern CLI replacements for grep/find/cat |
+| `htop`, `jq`, `tree` | system utilities |
+| `openssh-client` | SSH |
+| `curl`, `wget`, `unzip`, `zip`, `libgl1` | general utilities |
+
+> GNOME-specific packages (`gnome-tweaks`, `gnome-shell-extension-manager`, `xclip`, `dconf-cli`) are excluded — they are not available or useful in WSL.
+
+`bat` is installed as `batcat` on Ubuntu — the script creates a `~/.local/bin/bat` symlink automatically.
+
+### Step 02 — ZSH + Oh My ZSH + Powerlevel10k
+
+- Sets ZSH as the default shell via `chsh`
+- Installs [Oh My ZSH](https://ohmyz.sh/) non-interactively
+- Installs plugins: `zsh-autosuggestions`, `zsh-syntax-highlighting`, `zsh-completions`
+- Installs [Powerlevel10k](https://github.com/romkatv/powerlevel10k) theme
+- Downloads MesloLGS NF fonts (Regular, Bold, Italic, Bold Italic) to `~/.local/share/fonts`
+
+> GNOME Terminal theme (Gogh) is skipped — there is no GNOME Terminal in WSL.  
+> Configure the font in **Windows Terminal**: Settings → Ubuntu profile → Appearance → Font face → `MesloLGS NF Regular`.
+
+### Step 03 — Miniconda3
+
+- Downloads and installs Miniconda3 to `~/miniconda3`
+- Initializes conda for ZSH
+- Sets `auto_activate_base false` (base env is not activated on shell start)
+- Accepts Anaconda ToS for the main and r channels
+
+### Step 04 — Docker Engine
+
+- Removes any conflicting packages (`docker.io`, `podman-docker`, etc.)
+- Adds Docker's official apt repository with GPG key
+- Installs: `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-buildx-plugin`, `docker-compose-plugin`
+- Adds your user to the `docker` group
+
+> In WSL, Docker runs without systemd by default. If `docker` commands fail after install, start the daemon manually with `sudo service docker start`, or enable [systemd in WSL](https://learn.microsoft.com/en-us/windows/wsl/systemd).
+
+### Step 05 — AMD ROCm 7.2 for WSL ⚠️ WSL restart required
+
+ROCm is installed via `amdgpu-install` with the `wsl` usecase — **no kernel driver (DKMS) is installed**. The GPU is exposed to WSL by the Windows Adrenalin driver via `dxgkrnl`.
+
+- Downloads `amdgpu-install_7.2.70200-1_all.deb` from `repo.radeon.com`
+- Installs the `amdgpu-install` script package
+- Runs: `sudo amdgpu-install -y --usecase=wsl,rocm --no-dkms`
+  - Installs: rocminfo, rocm-smi, HIP runtime, OpenCL, compute libraries
+  - Does **not** install `amdgpu-dkms` (kernel driver — not needed and not supported in WSL)
+- Adds user to `render` and `video` groups
+
+After this step, the bootstrap pauses. You must restart WSL for the group changes to take effect:
+
+```powershell
+# In Windows PowerShell:
+wsl --shutdown
+wsl
+```
+
+Then run `./bootstrap.sh` again to continue.
+
+Verify GPU access after restart:
+```bash
+rocminfo | grep 'Marketing Name'
+rocm-smi
+```
+
+### Step 06 — PyTorch with ROCm
+
+Requires Miniconda (step 03) and ROCm (step 05 + WSL restart).
+
+Creates conda environments and installs official AMD ROCm wheels from `repo.radeon.com`:
+
+| `PYTHON_VERSIONS` | Conda env | PyTorch | torchvision | torchaudio | triton |
+|---|---|---|---|---|---|
+| `3.10` | `rocm-env` | 2.5.1+rocm7.0.2 | 0.22.1 | 2.7.1 | 3.1.0 |
+| `3.11` | `rocm-env-311` | 2.7.1+rocm7.0.2 | 0.23.0 | 2.7.1 | 3.3.1 |
+| `both` | both above | both above | | | |
+
+Set `PYTHON_VERSIONS` in `.env` to skip the interactive prompt.
+
+### Step 07 — Mise (runtime version manager)
+
+- Installs [mise](https://mise.jdx.dev) to `~/.local/bin/mise`
+- Adds `eval "$(~/.local/bin/mise activate zsh)"` to `~/.zshrc`
+- Installs and sets as global:
+
+| Tool | Version |
+|---|---|
+| Java | Temurin 21 (LTS) |
+| Node.js | LTS |
+| Go | latest |
+| Rust | latest |
+| Maven | latest |
+
+### Step 08 — Git config + SSH key
+
+- Sets `user.name` and `user.email` from `.env` (or prompts interactively)
+- Global config: `init.defaultBranch=main`, `pull.rebase=false`, `core.editor=nvim`, `core.autocrlf=input`
+- Configures `git-delta` as pager for diff/log/show with Monokai Extended theme
+- Adds aliases: `st`, `co`, `br`, `lg`, `undo`
+- Generates `~/.ssh/id_ed25519` if it doesn't exist and prints the public key
+
+### Step 09 — Dotfiles (GNU Stow)
+
+Symlinks all packages in `dotfiles/` to `$HOME`:
+
+| Package | Files |
+|---|---|
+| `zsh` | `~/.zshrc`, `~/.p10k.zsh` |
+| `nvim` | `~/.config/nvim/` (init.lua + plugins) |
+
+If `~/.zshrc` already exists as a real file (not a symlink), it is backed up to `~/.zshrc.bak` before stowing.
 
 ---
 
-## What is installed
+## Post-install manual steps
 
-| Step | Description |
-| --- | --- |
-| `00-nvim-unstable` | Installs the dev/unstable version (optional, via `.env`) |
-| `01-packages` | System packages: build tools, neovim, stow, ripgrep, bat, fd, etc. |
-| `02-zsh` | ZSH + Oh My ZSH + Powerlevel10k + MesloLGS NF fonts |
-| `03-conda` | Miniconda3 (base not activated by default) |
-| `04-docker` | Docker Engine CE + Compose plugin |
-| `05-rocm` | AMD ROCm 7.2 via package manager (**reboot required**) |
-| `06-pytorch` | PyTorch 2.5.1 or 2.7.1 with ROCm (official AMD wheels) |
-| `07-mise` | Mise + Java 21 (Temurin), Node LTS, Go, Rust, Maven |
-| `08-git` | Global Git config + SSH key + git-delta |
-| `09-dotfiles` | Dotfiles symlinking via **GNU Stow** |
+1. **Terminal font:** Windows Terminal → Settings → Ubuntu profile → Appearance → Font face → `MesloLGS NF Regular`
+2. **Prompt:** run `p10k configure` to reconfigure Powerlevel10k
+3. **GitHub SSH:** `cat ~/.ssh/id_ed25519.pub` → [github.com/settings/ssh/new](https://github.com/settings/ssh/new)
+4. **Verify GPU:** `rocminfo | grep 'Marketing Name'`
 
 ---
 
-## Important Notes — ROCm + RX 7800 XT
+## Neovim errors
 
-* The **RX 7800 XT (gfx1101)** is **officially supported** by ROCm 7.2
-* Supported only on **Ubuntu 24.04.3** — specific point release version.
-* This script uses the **package manager method** (recommended by AMD since ROCm 7.x).
-* The `amdgpu-install` via `.deb` method has been removed from official documentation.
+The error `vim.schedule callback: vim/keymap.lua:0: rhs: expected string|function` is caused by a plugin (likely gitsigns) mapping a key with a `nil` value. It does not affect general functionality.
 
+- Check `~/.config/nvim/lua/plugins/extras.lua:72-77`
+- Permanent fix: set `INSTALL_NVIM_UNSTABLE=true` in `.env`
 
-* After installing ROCm, a **reboot is mandatory**.
-* The `HSA_OVERRIDE_GFX_VERSION` variable is **not required** for the RX 7800 XT (gfx1101 is natively supported).
-* Verify after reboot:
+---
+
+## `.env` reference
 
 ```bash
-rocm-smi          # GPU status
-rocminfo          # Detailed information
-hipinfo           # Verify HIP runtime
+GIT_USER_NAME="Your Name"
+GIT_USER_EMAIL="you@example.com"
+PYTHON_VERSIONS="3.10"        # 3.10 | 3.11 | both
+INSTALL_NVIM_UNSTABLE="false" # true | false
 ```
-
----
-
-## Project Structure
-
-```
-my-tux/
-├── bootstrap.sh            # Main orchestrator
-├── .env.example            # Configuration template
-├── .env                    # Your configs (create based on .example)
-├── scripts/
-│   ├── 00-nvim-unstable.sh
-│   ├── 01-packages.sh
-│   ├── 02-zsh.sh
-│   ├── 03-conda.sh
-│   ├── 04-docker.sh
-│   ├── 05-rocm.sh          # ROCm 7.2 (package manager)
-│   ├── 06-pytorch.sh       # PyTorch wheels AMD
-│   ├── 07-mise.sh
-│   ├── 08-git.sh
-│   └── 09-dotfiles.sh      # GNU Stow
-└── dotfiles/               # Managed via GNU Stow
-    ├── zsh/
-    │   ├── .zshrc
-    │   └── .p10k.zsh
-    └── nvim/
-        └── .config/nvim/
-            ├── init.lua    # lazy.nvim
-            └── lua/plugins/
-                ├── colorscheme.lua   # Monokai Pro
-                ├── telescope.lua     # + fzf-native
-                ├── treesitter.lua
-                └── extras.lua        # neo-tree, lualine, gitsigns
-```
-
----
-
-## Dotfiles — GNU Stow
-
-[GNU Stow](https://www.gnu.org/software/stow/) manages symlinks automatically. Each subdirectory in `dotfiles/` is a "package":
-
-```bash
-# Install all dotfiles
-cd dotfiles && stow --target="$HOME" zsh nvim
-
-# Remove symlinks for a package
-stow -D --target="$HOME" nvim
-
-# Update after changes
-stow --restow --target="$HOME" nvim
-```
-
-To add new dotfiles (e.g., tmux):
-
-```bash
-mkdir -p dotfiles/tmux
-cp ~/.tmux.conf dotfiles/tmux/.tmux.conf
-cd dotfiles && stow --target="$HOME" tmux
-```
-
----
-
-## Tool Choices
-
-### Why `mise` instead of `asdf`?
-
-* Written in **Rust** (much faster).
-* Compatible with asdf's `.tool-versions`.
-* Actively maintained with a vibrant roadmap.
-* Simpler installation, fewer dependencies.
-
-### Why `lazy.nvim` instead of `Packer`?
-
-* Packer was **archived** in August 2023 — no further updates.
-* lazy.nvim is the modern replacement: true lazy loading, better UI, faster.
-
-### Why `GNU Stow`?
-
-* No dependencies beyond Perl (pre-installed).
-* Simple: just creates/removes symlinks.
-* Works perfectly with any VCS (git pull = updated dotfiles).
-
----
-
-## Manual Steps (post-script)
-
-1. **Terminal:** Preferences → Profile → Text → Font: `MesloLGS NF Regular`.
-2. **Powerlevel10k:** `p10k configure` (if you wish to reconfigure).
-3. **GitHub SSH:** Copy `~/.ssh/id_ed25519.pub` → [github.com/settings/ssh](https://github.com/settings/ssh/new).
-4. **GNOME Tweaks:** Themes and icons (download manually from [gnome-look.org](https://www.gnome-look.org)).
-5. **Extensions:** Dash to Dock, User Themes (via Extension Manager).
-
----
-
-## Contributing
-
-Issues and PRs are welcome! If you use this setup on another AMD GPU or Ubuntu version, please share your experience.
-
-## License
-
-MIT License - feel free to use and modify.
