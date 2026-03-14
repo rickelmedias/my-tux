@@ -21,7 +21,7 @@ flowchart TD
 
 ## Hardware
 
-| | |
+| Component | Spec |
 |---|---|
 | CPU | AMD Ryzen 7 7700X |
 | GPU | AMD RX 7800 XT (gfx1101, RDNA3) |
