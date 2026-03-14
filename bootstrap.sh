@@ -136,7 +136,21 @@ main() {
   run_step "02-zsh"         "02-zsh.sh"
   run_step "03-conda"       "03-conda.sh"
   run_step "04-docker"      "04-docker.sh"
-  run_step "05-rocm"        "05-rocm.sh"
+
+  if ! is_done "05-rocm"; then
+    run_step "05-rocm" "05-rocm.sh"
+    mark_done "05-rocm-reboot"
+    echo ""
+    warn "╔══════════════════════════════════════════════════════╗"
+    warn "║  Feche e reabra o WSL para aplicar grupos GPU        ║"
+    warn "║  Após reabrir, rode: ./bootstrap.sh                  ║"
+    warn "║  O script continuará de onde parou automaticamente.  ║"
+    warn "╚══════════════════════════════════════════════════════╝"
+    echo ""
+    info "No PowerShell do Windows: wsl --shutdown && wsl"
+    exit 0
+  fi
+
   run_step "06-pytorch"     "06-pytorch.sh"
   run_step "07-mise"        "07-mise.sh"
   run_step "08-git"         "08-git.sh"
@@ -148,7 +162,7 @@ main() {
   info "Próximos passos manuais:"
   echo "  1. Windows Terminal → Settings → Perfil Ubuntu → Appearance → Font: MesloLGS NF Regular"
   echo "  2. Adicione sua chave SSH ao GitHub: cat ~/.ssh/id_ed25519.pub"
-  echo "  3. Para GPU AMD: pip install torch-directml (opcional)"
+  echo "  3. Verifique GPU: rocminfo | grep 'Marketing Name'"
   echo ""
   info "Logs disponíveis em: $LOG_DIR/"
   echo ""
