@@ -6,6 +6,10 @@
 
 ---
 
+My Tux is a fully automated personal development environment setup for Ubuntu 24.04. It installs and configures everything from scratch — shell, GPU drivers, runtimes, dotfiles — with a single command.
+
+The project has two installation branches depending on where you're running Ubuntu. Choose the one that fits your setup, as shown in the flowchart below:
+
 ```mermaid
 flowchart TD
     main["🐧 my-tux (main)\ndocumentation & entry point"]
