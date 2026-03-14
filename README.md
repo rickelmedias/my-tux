@@ -12,9 +12,9 @@ The project has two installation branches depending on where you're running Ubun
 
 ```mermaid
 flowchart TD
-    main["🐧 my-tux (main)\ndocumentation & entry point"]
-    main --> os["operational-system\nUbuntu 24.04 bare metal"]
-    main --> wsl["wsl\nUbuntu 24.04 on WSL2"]
+    main["(main)\n🐧 my-tux"]
+    main --> os["(operational-system)\nUbuntu 24.04 Bare Metal"]
+    main --> wsl["(wsl)\nUbuntu 24.04 WSL"]
 ```
 
 ---
