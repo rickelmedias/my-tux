@@ -11,6 +11,7 @@ sudo apt upgrade -y
 echo "→ Instalando pacotes essenciais..."
 packages=(
   build-essential \
+  cmake \
   curl \
   wget \
   git \

@@ -35,6 +35,7 @@ declare -A _STEP_BIT=(
   ["03-conda"]=2
   ["04-docker"]=3
   ["05-rocm"]=4
+  ["05a-librocdxg"]=10
   ["05-rocm-reboot"]=5
   ["06-pytorch"]=6
   ["07-mise"]=7
@@ -228,6 +229,9 @@ main() {
 
   if ! is_done "05-rocm"; then
     run_step "05-rocm" "05-rocm.sh"
+    if [[ "$BOOTSTRAP_TARGET" == "wsl" ]]; then
+      run_step "05a-librocdxg" "05a-librocdxg.sh"
+    fi
     checkpoint_restart "05-rocm-reboot"
   fi
 

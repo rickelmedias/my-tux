@@ -38,8 +38,16 @@ Before running the bootstrap inside Ubuntu:
    Recommended for this setup: [AMD Software: Adrenalin Edition 26.1.1](https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-26-1-1.html).
    ROCm on WSL compatibility reference: [Install Radeon software for WSL with ROCm](https://rocmdocs.amd.com/projects/radeon/en/latest/docs/install/wsl/install-radeon.html).
    This repository was validated on Windows 11 + WSL2 with Adrenalin 26.1.1.
-3. Restart Windows after the driver install.
-4. Verify the distro is running as WSL2
+3. Install the [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/).
+   Only the **Windows SDK for Desktop C++ Apps** component is required.
+   The SDK headers are needed to compile [librocdxg](https://github.com/ROCm/librocdxg), which enables ROCm on WSL.
+   After installing, verify from WSL:
+   ```bash
+   ls "/mnt/c/Program Files (x86)/Windows Kits/10/Include/"
+   # Should list a version like 10.0.26100.0
+   ```
+4. Restart Windows after the driver install.
+5. Verify the distro is running as WSL2
    ```powershell
    wsl --list --verbose
    ```
@@ -103,6 +111,7 @@ Runs `apt update && apt upgrade`, then installs:
 | Package | Purpose |
 |---|---|
 | `build-essential` | gcc, make, etc. |
+| `cmake` | build system (needed for librocdxg on WSL) |
 | `neovim` | text editor |
 | `zsh` | shell |
 | `stow` | dotfiles symlink manager |
@@ -184,6 +193,15 @@ rocm-smi
 rocminfo | grep 'Marketing Name'
 ```
 
+### Step 05a — librocdxg *(WSL only)*
+
+Compiles and installs [librocdxg](https://github.com/ROCm/librocdxg), the user-mode library that bridges ROCm to the Windows GPU driver via `dxgkrnl`.
+
+- Requires the Windows SDK installed on the Windows side (see pre-requisites)
+- Uses `WIN_SDK_VERSION` from `.env` to locate the SDK headers
+- Clones, builds, and installs `librocdxg.so` into `/opt/rocm/lib/`
+- The environment variable `HSA_ENABLE_DXG_DETECTION=1` (set in `.zshrc`) tells the HSA runtime to load the library
+
 ### Step 06 — PyTorch with ROCm
 
 Requires Miniconda (step 03) and ROCm (step 05 + restart).
@@ -248,6 +266,33 @@ If `~/.zshrc` already exists as a real file (not a symlink), it is backed up to 
 
 ---
 
+## PyTorch not detecting GPU on WSL
+
+PyTorch ships its own `libhsa-runtime64.so` which does not know about `librocdxg`.
+When `torch.cuda.is_available()` returns `False` but `rocminfo` shows the GPU, the fix is to
+force PyTorch to use the system HSA runtime from `/opt/rocm/lib`:
+
+```bash
+conda activate rocm-env
+
+# Find the bundled lib
+ldd $(python -c "import torch; print(torch._C.__file__)") | grep libhsa
+# If it points to site-packages/torch/lib, it needs to be replaced
+
+# Rename the bundled lib
+cd $(python -c "import os, torch; print(os.path.dirname(torch.__file__) + '/lib')")
+mv libhsa-runtime64.so libhsa-runtime64.so.bak
+
+# Verify
+python -c "import torch; print('GPU:', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A')"
+```
+
+This must be repeated after every `pip install --upgrade torch` or `conda update pytorch`.
+
+The shell function `rocm-help` (available in `.zshrc`) prints a quick reference for this fix.
+
+---
+
 ## Neovim errors
 
 The error `vim.schedule callback: vim/keymap.lua:0: rhs: expected string|function` is caused by a plugin (likely gitsigns) mapping a key with a `nil` value. It does not affect general functionality.
@@ -265,4 +310,5 @@ GIT_USER_EMAIL="you@example.com"
 PYTHON_VERSIONS="3.10"                 # 3.10 | 3.11 | both
 INSTALL_NVIM_UNSTABLE="false"          # true | false
 # BOOTSTRAP_TARGET="wsl"               # optional: wsl | operational-system
+WIN_SDK_VERSION="10.0.26100.0"         # WSL only: Windows SDK version for librocdxg
 ```
