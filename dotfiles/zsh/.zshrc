@@ -26,6 +26,13 @@ plugins=(
 
 source "$ZSH/oh-my-zsh.sh"
 
+# ── Ambiente ──────────────────────────────────────────────────────
+if grep -qi "microsoft" /proc/version 2>/dev/null; then
+  export MY_TUX_TARGET="wsl"
+else
+  export MY_TUX_TARGET="operational-system"
+fi
+
 # ── PATH ──────────────────────────────────────────────────────────
 export PATH="$HOME/.local/bin:/opt/rocm/bin:$PATH"
 
@@ -33,19 +40,26 @@ export PATH="$HOME/.local/bin:/opt/rocm/bin:$PATH"
 export EDITOR="nvim"
 export VISUAL="nvim"
 
-# ── ROCm / AMD GPU (WSL Optimized) ────────────────────────────────
+# ── ROCm / AMD GPU ────────────────────────────────────────────────
 export ROCM_PATH=/opt/rocm
-export LD_LIBRARY_PATH="/opt/rocm/lib:/usr/lib/wsl/lib:${LD_LIBRARY_PATH:-}"
-
-# Variáveis críticas para RDNA3 (Série 7000) no WSL
-export HSA_OVERRIDE_GFX_VERSION=11.0.0   # Força compatibilidade gfx1100
-export HSA_ENABLE_SDMA=0                # Evita crashes de memória no WSL
-export AMD_SERIALIZE_COPY=1             # Sincronização estável de memória
-export HSA_ENABLE_DXG_DETECTION=1       # Ativa suporte ao driver do Windows (librocdxg)
+export LD_LIBRARY_PATH="/opt/rocm/lib:${LD_LIBRARY_PATH:-}"
 export ROCR_VISIBLE_DEVICES=0
+export HSA_ENABLE_SDMA=0
+
+if [[ "$MY_TUX_TARGET" == "wsl" ]]; then
+  export LD_LIBRARY_PATH="/opt/rocm/lib:/usr/lib/wsl/lib:${LD_LIBRARY_PATH:-}"
+  export HSA_OVERRIDE_GFX_VERSION=11.0.0
+  export AMD_SERIALIZE_COPY=1
+  export HSA_ENABLE_DXG_DETECTION=1
+fi
 
 # ── Mise (runtime manager) ────────────────────────────────────────
 [[ -f "$HOME/.local/bin/mise" ]] && eval "$($HOME/.local/bin/mise activate zsh)"
+
+# ── Conda (inicialização mínima, sem ativar base) ─────────────────
+if [[ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]]; then
+  source "$HOME/miniconda3/etc/profile.d/conda.sh"
+fi
 
 # ── Aliases ───────────────────────────────────────────────────────
 alias vim="nvim"
@@ -76,20 +90,6 @@ setopt SHARE_HISTORY
 # ── Powerlevel10k config ──────────────────────────────────────────
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-# >>> conda initialize >>>
-__conda_setup="$('/home/r1ddax/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/home/r1ddax/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/r1ddax/miniconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/home/r1ddax/miniconda3/bin:$PATH"
-    fi
-fi
-unset __conda_setup
-# <<< conda initialize <<<
-
 # ── Funções Úteis ─────────────────────────────────────────────────
 ytb() {
   yt-dlp "$@" \
@@ -107,6 +107,10 @@ ytb() {
 
 # ── Cheat Sheet: Fix ROCm PyTorch no WSL ──────────────────────────
 rocm-help() {
+  if [[ "$MY_TUX_TARGET" != "wsl" ]]; then
+    echo "Este guia rapido e focado em WSL."
+    return 0
+  fi
   echo -e "\e[1;35mROCM-PYTORCH-WSL(1)\e[0m             \e[1;32mManual do Usuário\e[0m             \e[1;35mROCM-PYTORCH-WSL(1)\e[0m"
   echo -e "\n\e[1;33mNOME\e[0m"
   echo -e "    rocm-fix - Conserta o link do PyTorch com a GPU no WSL após updates."

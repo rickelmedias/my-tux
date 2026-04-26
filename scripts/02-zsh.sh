@@ -2,6 +2,7 @@
 # Script 02 - ZSH + Oh My ZSH + Powerlevel10k + Plugins
 set -euo pipefail
 
+BOOTSTRAP_TARGET="${BOOTSTRAP_TARGET:-$(grep -qi "microsoft" /proc/version 2>/dev/null && echo wsl || echo operational-system)}"
 ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
 # ── ZSH como shell padrão ─────────────────────────────────────────────────────
@@ -70,10 +71,25 @@ if $fonts_installed; then
   fc-cache -fv
 fi
 
+if [[ "$BOOTSTRAP_TARGET" != "wsl" ]]; then
+  echo "→ Instalando tema Monokai Pro no GNOME Terminal (via Gogh)..."
+  export TERMINAL=gnome-terminal
+  export GOGH_NONINTERACTIVE=1
+  echo "224" | bash -c "$(wget -qO- https://git.io/vQgMr)" > /dev/null 2>&1 || {
+    echo "  ⚠️  Não foi possível instalar o tema do terminal automaticamente."
+  }
+fi
+
 echo ""
 echo "✓ ZSH + Oh My ZSH + Powerlevel10k configurados."
 echo ""
-echo "  ⚠️  Próximos passos manuais (WSL):"
-echo "  1. No terminal Windows (ex: Windows Terminal), configure a fonte 'MesloLGS NF Regular'"
-echo "     Settings → Perfil Ubuntu → Appearance → Font face"
+if [[ "$BOOTSTRAP_TARGET" == "wsl" ]]; then
+  echo "  ⚠️  Próximos passos manuais (WSL):"
+  echo "  1. No terminal Windows (ex: Windows Terminal), configure a fonte 'MesloLGS NF Regular'"
+  echo "     Settings → Perfil Ubuntu → Appearance → Font face"
+else
+  echo "  ⚠️  Próximos passos manuais (bare metal):"
+  echo "  1. Abra Preferências do Terminal → Perfil → Texto"
+  echo "     Ative 'Fonte personalizada' e selecione 'MesloLGS NF Regular'"
+fi
 echo "  2. Após o dotfiles ser instalado (etapa 09), rode: p10k configure"

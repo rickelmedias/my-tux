@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Script 06 - PyTorch com ROCm (WSL)
+# Script 06 - PyTorch com ROCm
 set -euo pipefail
 
 BOOTSTRAP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,7 +16,7 @@ if [[ ! -f "$CONDA_BIN" ]]; then
 fi
 
 if ! command -v rocm-smi &>/dev/null; then
-  echo "✗ ROCm não encontrado. Execute a etapa 05 primeiro e reabra o WSL."
+  echo "✗ ROCm não encontrado. Execute a etapa 05 primeiro e reinicie/reabra o ambiente."
   exit 1
 fi
 
@@ -75,16 +75,28 @@ if torch.cuda.is_available():
 "
 }
 
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-3.10}"
+PYTHON_VERSIONS="${PYTHON_VERSIONS:-}"
+if [[ -n "$PYTHON_VERSIONS" ]]; then
+  echo "→ Usando configuração do .env: PYTHON_VERSIONS=$PYTHON_VERSIONS"
+  choice="$PYTHON_VERSIONS"
+else
+  echo ""
+  echo "Escolha os ambientes PyTorch:"
+  echo "  3.10  - Python 3.10 (estável, recomendado)"
+  echo "  3.11  - Python 3.11"
+  echo "  both  - Ambos"
+  read -rp "Opção [3.10/3.11/both]: " choice
+  choice="${choice:-3.10}"
+fi
 
-case "$PYTHON_VERSIONS" in
-  3.10) setup_env "rocm-env"     "3.10" "$HOME/rocm-wheels/310" ;;
-  3.11) setup_env "rocm-env-311" "3.11" "$HOME/rocm-wheels/311" ;;
+case "$choice" in
+  3.10|"") setup_env "rocm-env"     "3.10" "$HOME/rocm-wheels/310" ;;
+  3.11)    setup_env "rocm-env-311" "3.11" "$HOME/rocm-wheels/311" ;;
   both)
     setup_env "rocm-env"     "3.10" "$HOME/rocm-wheels/310"
     setup_env "rocm-env-311" "3.11" "$HOME/rocm-wheels/311"
     ;;
-  *) setup_env "rocm-env" "3.10" "$HOME/rocm-wheels/310" ;;
+  *)       setup_env "rocm-env"     "3.10" "$HOME/rocm-wheels/310" ;;
 esac
 
 echo ""

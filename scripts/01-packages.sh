@@ -2,12 +2,14 @@
 # Script 01 - Pacotes essenciais do sistema
 set -euo pipefail
 
+BOOTSTRAP_TARGET="${BOOTSTRAP_TARGET:-$(grep -qi "microsoft" /proc/version 2>/dev/null && echo wsl || echo operational-system)}"
+
 echo "→ Atualizando sistema..."
 sudo apt update
 sudo apt upgrade -y
 
 echo "→ Instalando pacotes essenciais..."
-sudo apt install -y \
+packages=(
   build-essential \
   curl \
   wget \
@@ -31,6 +33,18 @@ sudo apt install -y \
   lsb-release \
   software-properties-common \
   uuid-runtime
+)
+
+if [[ "$BOOTSTRAP_TARGET" != "wsl" ]]; then
+  packages+=(
+    gnome-tweaks
+    gnome-shell-extension-manager
+    xclip
+    dconf-cli
+  )
+fi
+
+sudo apt install -y "${packages[@]}"
 
 # bat é instalado como batcat no Ubuntu — criar alias
 if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Linux Bootstrap - WSL (Ubuntu 24.04)
+# My Tux Bootstrap - Ubuntu 24.04
+# Supports: bare metal Linux and WSL2
 # =============================================================================
 set -euo pipefail
 
@@ -73,9 +74,38 @@ with open("${STATE_FILE}", 'wb') as f:
 PY
 }
 
+detect_target() {
+  local override="${BOOTSTRAP_TARGET:-}"
+  if [[ -n "$override" ]]; then
+    case "$override" in
+      wsl|operational-system)
+        echo "$override"
+        return 0
+        ;;
+      *)
+        error "BOOTSTRAP_TARGET inválido: $override (use 'wsl' ou 'operational-system')"
+        ;;
+    esac
+  fi
+
+  if grep -qi "microsoft" /proc/version 2>/dev/null; then
+    echo "wsl"
+  else
+    echo "operational-system"
+  fi
+}
+
+target_label() {
+  case "${BOOTSTRAP_TARGET_DETECTED:-}" in
+    wsl) echo "WSL" ;;
+    operational-system) echo "Bare Metal" ;;
+    *) echo "Unknown" ;;
+  esac
+}
+
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
 preflight() {
-  header "Linux Bootstrap (WSL) - Pre-flight checks"
+  header "My Tux Bootstrap - Pre-flight checks"
 
   local distro
   distro=$(lsb_release -rs 2>/dev/null || echo "unknown")
@@ -90,16 +120,57 @@ preflight() {
   fi
   log "Ubuntu Noble detectado ✓"
 
-  if grep -qi "microsoft" /proc/version 2>/dev/null; then
+  BOOTSTRAP_TARGET_DETECTED="$(detect_target)"
+  export BOOTSTRAP_TARGET="$BOOTSTRAP_TARGET_DETECTED"
+  log "Alvo selecionado: $(target_label)"
+
+  if [[ "$BOOTSTRAP_TARGET" == "wsl" ]]; then
     log "Ambiente WSL detectado ✓"
   else
-    warn "Ambiente WSL não detectado — use a branch 'operational-system' para bare metal."
+    local kernel
+    kernel=$(uname -r)
+    info "Kernel: $kernel"
+    if command -v lspci &>/dev/null && lspci | grep -qi "AMD/ATI.*RX 7800"; then
+      log "RX 7800 XT detectada ✓ (gfx1101, RDNA3)"
+    elif command -v lspci &>/dev/null && lspci | grep -qi "AMD"; then
+      warn "GPU AMD detectada. Verifique suporte ROCm se necessário."
+    fi
   fi
 
   echo ""
   info "Log: $LOG_FILE"
   info "Estado: $STATE_FILE (bitmask binário)"
   echo ""
+}
+
+checkpoint_restart() {
+  local marker="$1"
+  mark_done "$marker"
+  echo ""
+  if [[ "$BOOTSTRAP_TARGET" == "wsl" ]]; then
+    warn "╔══════════════════════════════════════════════════════╗"
+    warn "║  Feche e reabra o WSL para aplicar grupos GPU        ║"
+    warn "║  Após reabrir, rode: ./bootstrap.sh                  ║"
+    warn "║  O script continuará de onde parou automaticamente.  ║"
+    warn "╚══════════════════════════════════════════════════════╝"
+    echo ""
+    info "No PowerShell do Windows: wsl --shutdown && wsl"
+    exit 0
+  fi
+
+  warn "╔══════════════════════════════════════════════════════╗"
+  warn "║  REBOOT NECESSÁRIO para continuar                    ║"
+  warn "║  Após reiniciar, rode: ./bootstrap.sh                ║"
+  warn "║  O script continuará de onde parou automaticamente.  ║"
+  warn "╚══════════════════════════════════════════════════════╝"
+  echo ""
+  read -rp "Reiniciar agora? [s/N]: " confirm
+  if [[ "$confirm" =~ ^[sS]$ ]]; then
+    sudo reboot
+  else
+    info "Reinicie manualmente e rode ./bootstrap.sh novamente."
+    exit 0
+  fi
 }
 
 # ── Executar script de etapa ──────────────────────────────────────────────────
@@ -123,13 +194,14 @@ run_step() {
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 main() {
-  preflight
-
   if [[ -f "$BOOTSTRAP_DIR/.env" ]]; then
     source "$BOOTSTRAP_DIR/.env"
-    if [[ "${INSTALL_NVIM_UNSTABLE:-false}" == "true" ]]; then
-      run_step "00-nvim-unstable" "00-nvim-unstable.sh"
-    fi
+  fi
+
+  preflight
+
+  if [[ "${INSTALL_NVIM_UNSTABLE:-false}" == "true" ]]; then
+    run_step "00-nvim-unstable" "00-nvim-unstable.sh"
   fi
 
   run_step "01-packages"    "01-packages.sh"
@@ -139,16 +211,7 @@ main() {
 
   if ! is_done "05-rocm"; then
     run_step "05-rocm" "05-rocm.sh"
-    mark_done "05-rocm-reboot"
-    echo ""
-    warn "╔══════════════════════════════════════════════════════╗"
-    warn "║  Feche e reabra o WSL para aplicar grupos GPU        ║"
-    warn "║  Após reabrir, rode: ./bootstrap.sh                  ║"
-    warn "║  O script continuará de onde parou automaticamente.  ║"
-    warn "╚══════════════════════════════════════════════════════╝"
-    echo ""
-    info "No PowerShell do Windows: wsl --shutdown && wsl"
-    exit 0
+    checkpoint_restart "05-rocm-reboot"
   fi
 
   run_step "06-pytorch"     "06-pytorch.sh"
@@ -157,12 +220,21 @@ main() {
   run_step "09-dotfiles"    "09-dotfiles.sh"
 
   header "Bootstrap completo!"
-  log "Ambiente de desenvolvimento WSL configurado com sucesso!"
+  log "Ambiente de desenvolvimento configurado com sucesso!"
   echo ""
   info "Próximos passos manuais:"
-  echo "  1. Windows Terminal → Settings → Perfil Ubuntu → Appearance → Font: MesloLGS NF Regular"
-  echo "  2. Adicione sua chave SSH ao GitHub: cat ~/.ssh/id_ed25519.pub"
-  echo "  3. Verifique GPU: rocminfo | grep 'Marketing Name'"
+  if [[ "$BOOTSTRAP_TARGET" == "wsl" ]]; then
+    echo "  1. Windows Terminal → Settings → Perfil Ubuntu → Appearance → Font: MesloLGS NF Regular"
+    echo "  2. Rode: p10k configure"
+    echo "  3. Adicione sua chave SSH ao GitHub: cat ~/.ssh/id_ed25519.pub"
+    echo "  4. Verifique GPU: rocm-smi && rocminfo | grep 'Marketing Name'"
+  else
+    echo "  1. Terminal → Preferências → Fonte: MesloLGS NF Regular"
+    echo "  2. GNOME Tweaks / Extension Manager → aparência e extensões"
+    echo "  3. Rode: p10k configure"
+    echo "  4. Adicione sua chave SSH ao GitHub: cat ~/.ssh/id_ed25519.pub"
+    echo "  5. Verifique GPU: rocm-smi && rocminfo | grep 'Marketing Name'"
+  fi
   echo ""
   info "Logs disponíveis em: $LOG_DIR/"
   echo ""

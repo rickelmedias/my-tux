@@ -1,72 +1,86 @@
-# My Tux — wsl
+# My Tux
 
-Automated setup for **Ubuntu 24.04 on WSL2** (Windows Subsystem for Linux).
+Automated setup for **Ubuntu 24.04** with support for both **bare metal Linux** and **Ubuntu on WSL2**.
 
-> For bare metal Ubuntu, switch to the [`operational-system`](../../tree/operational-system) branch.  
-> For an overview of both branches, see [`main`](../../tree/main).
+> This repository now uses a single codebase.
+> Environment-specific behavior is selected automatically by `bootstrap.sh`.
 
 ---
 
-## Hardware & host
+## Supported Environments
 
 | Component | Spec |
 |---|---|
 | CPU | AMD Ryzen 7 7700X |
 | GPU | AMD RX 7800 XT (gfx1101, RDNA3) |
-| Host OS | Windows (with WSL2) |
-| WSL distro | Ubuntu 24.04 LTS (Noble Numbat) |
+| Bare metal | Ubuntu 24.04.3 LTS (Noble Numbat) |
+| WSL | Windows 11 + WSL2 + Ubuntu 24.04 LTS |
 
 ---
 
-## Pre-requisites (Windows side — before running anything)
+## Pre-requisites
 
-These must be done on Windows **before** running the bootstrap:
+### Bare metal Ubuntu
 
-1. **Install WSL2 with Ubuntu 24.04**
+- Fresh Ubuntu 24.04.3 LTS install
+- Internet connection
+- `sudo` access
+
+### WSL2 on Windows 11
+
+Before running the bootstrap inside Ubuntu:
+
+1. Install WSL2 with Ubuntu 24.04
    ```powershell
    wsl --install -d Ubuntu-24.04
    ```
-
-2. **Install AMD Adrenalin Edition 26.1.1+**  
-   Download from [amd.com/en/support](https://www.amd.com/en/support).  
-   This is the Windows GPU driver that exposes the GPU to WSL via `dxgkrnl`.  
-   **Restart Windows after installing.**
-
-3. **Verify WSL2 (not WSL1)**
+2. Install AMD Adrenalin Edition 26.1.1 or newer on Windows
+   Download from [amd.com/en/support](https://www.amd.com/en/support).
+3. Restart Windows after the driver install.
+4. Verify the distro is running as WSL2
    ```powershell
-   wsl --list --verbose   # VERSION column must show 2
+   wsl --list --verbose
    ```
 
 ---
 
 ## Usage
 
-Inside Ubuntu on WSL:
-
 ```bash
 git clone https://github.com/rickelmedias/my-tux
 cd my-tux
-git checkout wsl
 cp .env.example .env
 nano .env
 chmod +x bootstrap.sh scripts/*.sh
 ./bootstrap.sh
 ```
 
-After ROCm installs, the script will pause and ask you to restart WSL. In PowerShell:
+The bootstrap auto-detects whether it is running on `wsl` or `operational-system`.
+
+You can override detection manually if needed:
+
+```bash
+BOOTSTRAP_TARGET=wsl ./bootstrap.sh
+BOOTSTRAP_TARGET=operational-system ./bootstrap.sh
+```
+
+The script is **idempotent**. State is saved in `~/.bootstrap_state`, so rerunning it resumes safely.
+
+After ROCm installs:
+
+- On bare metal, a full reboot is required.
+- On WSL, close and reopen the distro:
 
 ```powershell
 wsl --shutdown
-wsl   # reopen Ubuntu
+wsl
 ```
 
 Then resume:
 
 ```bash
-./bootstrap.sh   # continues automatically from where it stopped
+./bootstrap.sh
 ```
-
-The script is **idempotent** — state is saved in `~/.bootstrap_state`. Safe to run multiple times.
 
 ---
 
@@ -96,9 +110,8 @@ Runs `apt update && apt upgrade`, then installs:
 | `openssh-client` | SSH |
 | `curl`, `wget`, `unzip`, `zip`, `libgl1` | general utilities |
 
-> GNOME-specific packages (`gnome-tweaks`, `gnome-shell-extension-manager`, `xclip`, `dconf-cli`) are excluded — they are not available or useful in WSL.
-
-`bat` is installed as `batcat` on Ubuntu — the script creates a `~/.local/bin/bat` symlink automatically.
+On bare metal, the bootstrap also installs `gnome-tweaks`, `gnome-shell-extension-manager`, `xclip`, and `dconf-cli`.
+On WSL, those GNOME-specific packages are skipped automatically.
 
 ### Step 02 — ZSH + Oh My ZSH + Powerlevel10k
 
@@ -107,9 +120,13 @@ Runs `apt update && apt upgrade`, then installs:
 - Installs plugins: `zsh-autosuggestions`, `zsh-syntax-highlighting`, `zsh-completions`
 - Installs [Powerlevel10k](https://github.com/romkatv/powerlevel10k) theme
 - Downloads MesloLGS NF fonts (Regular, Bold, Italic, Bold Italic) to `~/.local/share/fonts`
+- On bare metal, installs the **Monokai Pro** GNOME Terminal theme via [Gogh](https://gogh-co.github.io/Gogh/)
+- On WSL, skips Gogh and expects font configuration in Windows Terminal
 
-> GNOME Terminal theme (Gogh) is skipped — there is no GNOME Terminal in WSL.  
-> Configure the font in **Windows Terminal**: Settings → Ubuntu profile → Appearance → Font face → `MesloLGS NF Regular`.
+Configure the font after install:
+
+- Bare metal: Terminal Preferences → Profile → Text → `MesloLGS NF Regular`
+- WSL: Windows Terminal → Ubuntu profile → Appearance → `MesloLGS NF Regular`
 
 ### Step 03 — Miniconda3
 
@@ -127,36 +144,39 @@ Runs `apt update && apt upgrade`, then installs:
 
 > In WSL, Docker runs without systemd by default. If `docker` commands fail after install, start the daemon manually with `sudo service docker start`, or enable [systemd in WSL](https://learn.microsoft.com/en-us/windows/wsl/systemd).
 
-### Step 05 — AMD ROCm 7.2 for WSL ⚠️ WSL restart required
+### Step 05 — AMD ROCm 7.2 ⚠️ restart required
 
-ROCm is installed via `amdgpu-install` with the `wsl` usecase — **no kernel driver (DKMS) is installed**. The GPU is exposed to WSL by the Windows Adrenalin driver via `dxgkrnl`.
+The ROCm installation path depends on the detected environment.
 
-- Downloads `amdgpu-install_7.2.70200-1_all.deb` from `repo.radeon.com`
-- Installs the `amdgpu-install` script package
-- Runs: `sudo amdgpu-install -y --usecase=wsl,rocm --no-dkms`
-  - Installs: rocminfo, rocm-smi, HIP runtime, OpenCL, compute libraries
-  - Does **not** install `amdgpu-dkms` (kernel driver — not needed and not supported in WSL)
-- Adds user to `render` and `video` groups
+Bare metal:
 
-After this step, the bootstrap pauses. You must restart WSL for the group changes to take effect:
+- Verifies `amdgpu` is available in the running kernel
+- Adds the ROCm apt repository for Ubuntu Noble
+- Installs `rocm` userspace packages only
+- Creates `/etc/profile.d/rocm.sh` with `PATH` and `LD_LIBRARY_PATH`
 
-```powershell
-# In Windows PowerShell:
-wsl --shutdown
-wsl
-```
+WSL:
 
-Then run `./bootstrap.sh` again to continue.
+- Downloads `amdgpu-install_7.2.70200-1_all.deb`
+- Installs `amdgpu-install`
+- Runs `sudo amdgpu-install -y --usecase=wsl,rocm --no-dkms`
+- Uses the Windows Adrenalin driver via `dxgkrnl`, so no Linux kernel DKMS driver is installed
 
-Verify GPU access after restart:
+Both paths:
+
+- Add the user to `render` and `video`
+- Require a restart before the PyTorch step
+
+Verify after restart:
+
 ```bash
-rocminfo | grep 'Marketing Name'
 rocm-smi
+rocminfo | grep 'Marketing Name'
 ```
 
 ### Step 06 — PyTorch with ROCm
 
-Requires Miniconda (step 03) and ROCm (step 05 + WSL restart).
+Requires Miniconda (step 03) and ROCm (step 05 + restart).
 
 Creates conda environments and installs official AMD ROCm wheels from `repo.radeon.com`:
 
@@ -166,7 +186,7 @@ Creates conda environments and installs official AMD ROCm wheels from `repo.rade
 | `3.11` | `rocm-env-311` | 2.7.1+rocm7.0.2 | 0.23.0 | 2.7.1 | 3.3.1 |
 | `both` | both above | both above | | | |
 
-Set `PYTHON_VERSIONS` in `.env` to skip the interactive prompt.
+Set `PYTHON_VERSIONS` in `.env` to skip the interactive prompt, or leave it unset to choose interactively.
 
 ### Step 07 — Mise (runtime version manager)
 
@@ -205,10 +225,13 @@ If `~/.zshrc` already exists as a real file (not a symlink), it is backed up to 
 
 ## Post-install manual steps
 
-1. **Terminal font:** Windows Terminal → Settings → Ubuntu profile → Appearance → Font face → `MesloLGS NF Regular`
-2. **Prompt:** run `p10k configure` to reconfigure Powerlevel10k
-3. **GitHub SSH:** `cat ~/.ssh/id_ed25519.pub` → [github.com/settings/ssh/new](https://github.com/settings/ssh/new)
-4. **Verify GPU:** `rocminfo | grep 'Marketing Name'`
+1. Terminal font:
+   Bare metal: Terminal Preferences → Profile → Text → `MesloLGS NF Regular`
+   WSL: Windows Terminal → Ubuntu profile → Appearance → `MesloLGS NF Regular`
+2. Prompt: run `p10k configure`
+3. GitHub SSH: `cat ~/.ssh/id_ed25519.pub`
+4. Verify GPU: `rocm-smi && rocminfo | grep 'Marketing Name'`
+5. Bare metal only: configure themes/extensions with GNOME Tweaks and Extension Manager
 
 ---
 
@@ -226,6 +249,7 @@ The error `vim.schedule callback: vim/keymap.lua:0: rhs: expected string|functio
 ```bash
 GIT_USER_NAME="Your Name"
 GIT_USER_EMAIL="you@example.com"
-PYTHON_VERSIONS="3.10"        # 3.10 | 3.11 | both
-INSTALL_NVIM_UNSTABLE="false" # true | false
+PYTHON_VERSIONS="3.10"                 # 3.10 | 3.11 | both
+INSTALL_NVIM_UNSTABLE="false"          # true | false
+# BOOTSTRAP_TARGET="wsl"               # optional: wsl | operational-system
 ```
