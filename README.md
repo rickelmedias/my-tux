@@ -134,17 +134,25 @@ Configure the font after install:
 
 - Downloads and installs Miniconda3 to `~/miniconda3`
 - Initializes conda for ZSH
-- Sets `auto_activate_base false` (base env is not activated on shell start)
+- Activates the `base` environment automatically on shell start
 - Accepts Anaconda ToS for the main and r channels
 
-### Step 04 — Docker Engine
+### Step 04 — Docker
+
+**Bare metal:**
 
 - Removes any conflicting packages (`docker.io`, `podman-docker`, etc.)
 - Adds Docker's official apt repository with GPG key
 - Installs: `docker-ce`, `docker-ce-cli`, `containerd.io`, `docker-buildx-plugin`, `docker-compose-plugin`
 - Adds your user to the `docker` group
 
-> In WSL, Docker runs without systemd by default. If `docker` commands fail after install, start the daemon manually with `sudo service docker start`, or enable [systemd in WSL](https://learn.microsoft.com/en-us/windows/wsl/systemd).
+**WSL:**
+
+- Skips Docker Engine installation entirely
+- Verifies that Docker Desktop (Windows) is accessible via WSL integration
+- If `docker` is not found, the bootstrap stops with a link to install [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+
+> On WSL, install Docker Desktop on Windows and enable **WSL 2 based engine** + integration with your Ubuntu distro in Docker Desktop → Settings → Resources → WSL Integration.
 
 ### Step 05 — AMD ROCm 7.2 ⚠️ restart required
 
@@ -230,10 +238,13 @@ If `~/.zshrc` already exists as a real file (not a symlink), it is backed up to 
 1. Terminal font:
    Bare metal: Terminal Preferences → Profile → Text → `MesloLGS NF Regular`
    WSL: Windows Terminal → Ubuntu profile → Appearance → `MesloLGS NF Regular`
-2. Prompt: run `p10k configure`
-3. GitHub SSH: `cat ~/.ssh/id_ed25519.pub`
-4. Verify GPU: `rocm-smi && rocminfo | grep 'Marketing Name'`
-5. Bare metal only: configure themes/extensions with GNOME Tweaks and Extension Manager
+2. WSL color scheme: import `windows-terminal/monokai-pro.json` into Windows Terminal
+   Settings → Color schemes → Open JSON file → paste the contents → set as default for the Ubuntu profile
+3. Prompt: the Powerlevel10k lean theme is applied automatically via `~/.p10k.zsh`.
+   To reconfigure, run `p10k configure`
+4. GitHub SSH: `cat ~/.ssh/id_ed25519.pub`
+5. Verify GPU: `rocm-smi && rocminfo | grep 'Marketing Name'`
+6. Bare metal only: configure themes/extensions with GNOME Tweaks and Extension Manager
 
 ---
 

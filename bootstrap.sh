@@ -207,7 +207,24 @@ main() {
   run_step "01-packages"    "01-packages.sh"
   run_step "02-zsh"         "02-zsh.sh"
   run_step "03-conda"       "03-conda.sh"
-  run_step "04-docker"      "04-docker.sh"
+  if [[ "$BOOTSTRAP_TARGET" == "wsl" ]]; then
+    if ! is_done "04-docker"; then
+      header "04-docker"
+      if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+        mark_done "04-docker"
+        log "[04-docker] Docker Desktop (WSL integration) detectado ✓"
+      else
+        warn "[04-docker] Docker não encontrado no WSL."
+        warn "Instale o Docker Desktop no Windows com integração WSL2 habilitada."
+        warn "https://docs.docker.com/desktop/install/windows-install/"
+        error "[04-docker] Docker Desktop não está acessível via WSL."
+      fi
+    else
+      log "[04-docker] já concluído, pulando..."
+    fi
+  else
+    run_step "04-docker"      "04-docker.sh"
+  fi
 
   if ! is_done "05-rocm"; then
     run_step "05-rocm" "05-rocm.sh"

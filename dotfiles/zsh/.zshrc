@@ -56,9 +56,10 @@ fi
 # ── Mise (runtime manager) ────────────────────────────────────────
 [[ -f "$HOME/.local/bin/mise" ]] && eval "$($HOME/.local/bin/mise activate zsh)"
 
-# ── Conda (inicialização mínima, sem ativar base) ─────────────────
+# ── Conda ─────────────────────────────────────────────────────────
 if [[ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]]; then
   source "$HOME/miniconda3/etc/profile.d/conda.sh"
+  conda activate base
 fi
 
 # ── Aliases ───────────────────────────────────────────────────────
