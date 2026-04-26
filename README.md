@@ -34,8 +34,10 @@ Before running the bootstrap inside Ubuntu:
    ```powershell
    wsl --install -d Ubuntu-24.04
    ```
-2. Install AMD Adrenalin Edition 26.1.1 or newer on Windows
-   Download from [amd.com/en/support](https://www.amd.com/en/support).
+2. Install a compatible AMD Windows driver before using ROCm on WSL.
+   Recommended for this setup: [AMD Software: Adrenalin Edition 26.1.1](https://www.amd.com/en/resources/support-articles/release-notes/RN-RAD-WIN-26-1-1.html).
+   ROCm on WSL compatibility reference: [Install Radeon software for WSL with ROCm](https://rocmdocs.amd.com/projects/radeon/en/latest/docs/install/wsl/install-radeon.html).
+   This repository was validated on Windows 11 + WSL2 with Adrenalin 26.1.1.
 3. Restart Windows after the driver install.
 4. Verify the distro is running as WSL2
    ```powershell
